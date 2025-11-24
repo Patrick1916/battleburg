@@ -1,4 +1,4 @@
-# Ballerburg Lite
+# Battleburg
 
 Ein einfaches, browserbasiertes 2D-Kanonenspiel im Stil von „Ballerburg“:
 
