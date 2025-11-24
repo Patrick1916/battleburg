@@ -39,7 +39,7 @@ export class HUD {
       !hpRightSpan ||
       !messageBox
     ) {
-      throw new Error('HUD-Elemente konnten nicht gefunden werden.');
+      throw new Error('HUD-Elemente konnten nicht gefunden werden – prüfe die IDs in index.html.');
     }
 
     this.angleInput = angleInput;

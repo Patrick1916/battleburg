@@ -10,6 +10,7 @@ window.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
+  console.log('[Battleburg] Initialisiere HUD und Game ...');
   const hud = new HUD();
   const game = new Game(canvas, hud);
   game.start();

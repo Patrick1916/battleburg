@@ -6,6 +6,7 @@ import { SimpleAI } from './AI';
 import { getTerrainHeight, clamp } from './Physics';
 import type { Vec2 } from './types';
 import { Castle } from './Castle';
+import { Weapon } from './Weapon';
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -17,12 +18,11 @@ export class Game {
   private players: Player[] = [];
   private currentPlayerIndex = 0;
   private currentProjectile: Projectile | null = null;
-  private wind = 0; // Pixel/s² (positive: nach rechts)
+  private wind = 0;
   private lastTimestamp = 0;
   private running = false;
   private simpleAI: SimpleAI;
 
-  // Schuss-Parameter
   private readonly baseSpeed = 250;
   private readonly extraSpeed = 350;
 
@@ -38,9 +38,14 @@ export class Game {
     this.hud = hud;
     this.simpleAI = new SimpleAI();
 
+    console.log('[Battleburg] Game.setupWorld() ...');
     this.setupWorld();
     this.hud.registerFireHandler((angleDeg, power) => this.handleFire(angleDeg, power));
     this.updateHud();
+  }
+
+  private get currentPlayer(): Player {
+    return this.players[this.currentPlayerIndex];
   }
 
   private setupWorld(): void {
@@ -57,13 +62,22 @@ export class Game {
     const leftCastlePos: Vec2 = { x: leftX, y: groundLeft };
     const rightCastlePos: Vec2 = { x: rightX, y: groundRight };
 
-    const leftCastle = new Castle(leftCastlePos, castleWidth, castleHeight, maxHp, true, '#4ea5ff');
-    const rightCastle = new Castle(rightCastlePos, castleWidth, castleHeight, maxHp, false, '#ff6b6b');
-
-    // Waffen
-    const { Weapon } = require('./Weapon') as typeof import('./Weapon'); // Workaround: require, um Zyklus zu vermeiden
-    // Hinweis: Wenn du ES-Imports strikt halten willst, kannst du Weapon auch direkt importieren
-    // und ggf. die Struktur minimal anpassen, damit keine Zyklen entstehen.
+    const leftCastle = new Castle(
+      leftCastlePos,
+      castleWidth,
+      castleHeight,
+      maxHp,
+      true,
+      '#4ea5ff'
+    );
+    const rightCastle = new Castle(
+      rightCastlePos,
+      castleWidth,
+      castleHeight,
+      maxHp,
+      false,
+      '#ff6b6b'
+    );
 
     const leftWeapon = new Weapon(leftCastle, 2);
     const rightWeapon = new Weapon(rightCastle, 2);
@@ -76,14 +90,6 @@ export class Game {
     this.randomizeWind();
   }
 
-  get currentPlayer(): Player {
-    return this.players[this.currentPlayerIndex];
-  }
-
-  private getOpponentOf(player: Player): Player {
-    return this.players[0] === player ? this.players[1] : this.players[0];
-  }
-
   start(): void {
     this.running = true;
     this.lastTimestamp = performance.now();
@@ -93,7 +99,7 @@ export class Game {
 
   private loop = (timestamp: number): void => {
     const rawDt = (timestamp - this.lastTimestamp) / 1000;
-    const dt = Math.min(rawDt, 0.05); // dt clamp
+    const dt = Math.min(rawDt, 0.05);
     this.lastTimestamp = timestamp;
 
     if (this.running) {
@@ -105,7 +111,6 @@ export class Game {
   };
 
   private update(dt: number): void {
-    // Waffen-Cooldowns aktualisieren
     for (const player of this.players) {
       player.weapon.update(dt);
     }
@@ -115,7 +120,6 @@ export class Game {
 
       const proj = this.currentProjectile;
 
-      // Canvas verlassen?
       if (
         proj.position.x < 0 ||
         proj.position.x > this.width ||
@@ -125,14 +129,12 @@ export class Game {
         return;
       }
 
-      // Terrain-Kollision
       const terrainY = getTerrainHeight(proj.position.x, this.width, this.height);
       if (proj.position.y >= terrainY) {
         this.handleImpact(null);
         return;
       }
 
-      // Burg-Kollision
       for (const player of this.players) {
         const castle = player.castle;
         const bounds = castle.getBounds();
@@ -182,14 +184,18 @@ export class Game {
 
     if (current.type === 'human') {
       this.hud.setControlsEnabled(true);
-      this.hud.showMessage('Du bist am Zug. Winkel & Schusskraft einstellen und feuern.');
+      this.hud.showMessage(
+        'Du bist am Zug. Winkel & Schusskraft einstellen und feuern.'
+      );
     } else {
       this.hud.setControlsEnabled(false);
       this.hud.showMessage('CPU zielt...');
       window.setTimeout(() => {
+        const opponent =
+          this.players[0] === current ? this.players[1] : this.players[0];
         this.simpleAI.takeTurn(
           current,
-          this.getOpponentOf(current),
+          opponent,
           (angleDeg, power) => this.handleFire(angleDeg, power)
         );
       }, 800);
@@ -197,8 +203,7 @@ export class Game {
   }
 
   private randomizeWind(): void {
-    // Wind zwischen -80 und +80 Pixel/s²
-    this.wind = (Math.random() * 160 - 80);
+    this.wind = Math.random() * 160 - 80;
   }
 
   private checkVictory(): boolean {
@@ -240,9 +245,7 @@ export class Game {
   }
 
   private handleFire(angleDeg: number, power: number): void {
-    if (this.currentProjectile) {
-      return;
-    }
+    if (this.currentProjectile) return;
 
     const shooter = this.currentPlayer;
     const weapon = shooter.weapon;
@@ -262,7 +265,7 @@ export class Game {
     const speed = this.baseSpeed + this.extraSpeed * clampedPower;
 
     const vx = Math.cos(angleRad) * speed * direction;
-    const vy = -Math.sin(angleRad) * speed; // negativ: nach oben
+    const vy = -Math.sin(angleRad) * speed;
 
     this.currentProjectile = new Projectile(muzzle.x, muzzle.y, vx, vy, 4);
     weapon.markFired();
@@ -273,8 +276,9 @@ export class Game {
   private render(): void {
     const ctx = this.ctx;
 
-    // Hintergrund
     ctx.clearRect(0, 0, this.width, this.height);
+
+    // Hintergrund
     ctx.fillStyle = '#0b0d12';
     ctx.fillRect(0, 0, this.width, this.height);
 
@@ -297,7 +301,7 @@ export class Game {
     ctx.closePath();
     ctx.fill();
 
-    // Burgen und Waffen
+    // Burgen & Waffen
     for (const player of this.players) {
       player.castle.draw(ctx);
       player.weapon.draw(ctx);

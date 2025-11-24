@@ -76,3 +76,12 @@ button#fireButton:disabled {
   border-radius: 4px;
   font-size: 14px;
 }
+/* Versionsanzeige unten im HUD */
+.hud-version {
+  margin-top: auto;          /* schiebt die Version nach unten im Flex-Container */
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: right;
+  padding-top: 8px;
+  border-top: 1px solid #111827;
+}
