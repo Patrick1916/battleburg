@@ -1,0 +1,60 @@
+<!-- index.html -->
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ballerburg Lite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+      <div id="hud">
+        <h1>Ballerburg Lite</h1>
+        <div class="hud-section">
+          <label for="angleSlider">Winkel</label>
+          <input
+            type="range"
+            id="angleSlider"
+            min="10"
+            max="80"
+            value="45"
+          />
+          <span id="angleValue">45°</span>
+        </div>
+
+        <div class="hud-section">
+          <label for="powerSlider">Schusskraft</label>
+          <input
+            type="range"
+            id="powerSlider"
+            min="20"
+            max="100"
+            value="60"
+          />
+          <span id="powerValue">60%</span>
+        </div>
+
+        <div class="hud-section">
+          <button id="fireButton">Feuer!</button>
+        </div>
+
+        <div class="hud-section">
+          <div><strong>Aktueller Zug:</strong> <span id="turnIndicator"></span></div>
+          <div><strong>Wind:</strong> <span id="windIndicator"></span></div>
+        </div>
+
+        <div class="hud-section">
+          <div><strong>Burg Links:</strong> <span id="hpLeft"></span></div>
+          <div><strong>Burg Rechts:</strong> <span id="hpRight"></span></div>
+        </div>
+
+        <div class="hud-section message-box" id="messageBox"></div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
