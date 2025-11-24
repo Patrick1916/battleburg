@@ -1,6 +1,7 @@
 // src/ui/HUD.ts
 export type FireHandler = (angleDeg: number, power: number) => void;
 export type AimChangeHandler = (angleDeg: number, power: number) => void;
+export type RestartHandler = () => void;
 
 export class HUD {
   private angleInput: HTMLInputElement;
@@ -8,6 +9,7 @@ export class HUD {
   private powerInput: HTMLInputElement;
   private powerValueSpan: HTMLElement;
   private fireButton: HTMLButtonElement;
+  private newGameButton: HTMLButtonElement;
   private turnIndicator: HTMLElement;
   private windIndicator: HTMLElement;
   private hpLeftSpan: HTMLElement;
@@ -16,6 +18,7 @@ export class HUD {
 
   private fireHandler: FireHandler | null = null;
   private aimChangeHandler: AimChangeHandler | null = null;
+  private restartHandler: RestartHandler | null = null;
 
   constructor() {
     const angleInput = document.getElementById('angleSlider') as HTMLInputElement | null;
@@ -23,6 +26,7 @@ export class HUD {
     const powerInput = document.getElementById('powerSlider') as HTMLInputElement | null;
     const powerValueSpan = document.getElementById('powerValue') as HTMLElement | null;
     const fireButton = document.getElementById('fireButton') as HTMLButtonElement | null;
+    const newGameButton = document.getElementById('newGameButton') as HTMLButtonElement | null;
     const turnIndicator = document.getElementById('turnIndicator') as HTMLElement | null;
     const windIndicator = document.getElementById('windIndicator') as HTMLElement | null;
     const hpLeftSpan = document.getElementById('hpLeft') as HTMLElement | null;
@@ -35,6 +39,7 @@ export class HUD {
       !powerInput ||
       !powerValueSpan ||
       !fireButton ||
+      !newGameButton ||
       !turnIndicator ||
       !windIndicator ||
       !hpLeftSpan ||
@@ -49,6 +54,7 @@ export class HUD {
     this.powerInput = powerInput;
     this.powerValueSpan = powerValueSpan;
     this.fireButton = fireButton;
+    this.newGameButton = newGameButton;
     this.turnIndicator = turnIndicator;
     this.windIndicator = windIndicator;
     this.hpLeftSpan = hpLeftSpan;
@@ -76,6 +82,12 @@ export class HUD {
       const power = powerPercent / 100;
       this.fireHandler(angle, power);
     });
+
+    this.newGameButton.addEventListener('click', () => {
+      if (this.restartHandler) {
+        this.restartHandler();
+      }
+    });
   }
 
   private notifyAimChange(): void {
@@ -92,10 +104,14 @@ export class HUD {
 
   registerAimChangeHandler(handler: AimChangeHandler): void {
     this.aimChangeHandler = handler;
-    // Initiale Werte einmal senden (passen zu index.html Defaults)
+    // initiale Werte pushen
     const angle = parseFloat(this.angleInput.value);
     const power = parseFloat(this.powerInput.value) / 100;
     handler(angle, power);
+  }
+
+  registerRestartHandler(handler: RestartHandler): void {
+    this.restartHandler = handler;
   }
 
   setControlsEnabled(enabled: boolean): void {

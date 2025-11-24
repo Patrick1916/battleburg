@@ -5,7 +5,7 @@ export class Weapon {
   readonly castle: Castle;
   private reloadTime: number;
   private cooldown: number;
-  private currentAngleDeg: number = 45;
+  private currentAngleDeg = 45;
 
   constructor(castle: Castle, reloadTimeSeconds = 2) {
     this.castle = castle;
@@ -38,7 +38,7 @@ export class Weapon {
   draw(ctx: CanvasRenderingContext2D): void {
     const muzzle = this.getMuzzlePosition();
 
-    // fester Sockel auf der Burg
+    // Sockel
     const baseHeight = 8;
     const baseWidth = 26;
     ctx.save();
@@ -51,11 +51,9 @@ export class Weapon {
     );
     ctx.restore();
 
-    // drehbares Rohr
+    // gedrehtes Rohr
     const angleRad = (this.currentAngleDeg * Math.PI) / 180;
     const direction = this.castle.isLeftSide ? 1 : -1;
-
-    // Vektor wie beim Projektil
     const vx = Math.cos(angleRad) * direction;
     const vy = -Math.sin(angleRad);
     const rotation = Math.atan2(vy, vx);
@@ -70,7 +68,6 @@ export class Weapon {
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, -barrelThickness / 2, barrelLength, barrelThickness);
 
-    // leichte farbliche Spitze
     ctx.fillStyle = '#facc15';
     ctx.fillRect(barrelLength - 6, -barrelThickness / 2, 6, barrelThickness);
 

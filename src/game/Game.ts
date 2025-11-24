@@ -3,10 +3,18 @@ import { HUD } from '../ui/HUD';
 import { Player } from './Player';
 import { Projectile } from './Projectile';
 import { SimpleAI } from './AI';
-import { GRAVITY, getTerrainHeight, clamp } from './Physics';
+import { GRAVITY, getTerrainHeight, clamp, regenerateTerrain } from './Physics';
 import type { Vec2 } from './types';
 import { Castle } from './Castle';
 import { Weapon } from './Weapon';
+
+interface FireworkParticle {
+  position: Vec2;
+  velocity: Vec2;
+  life: number;
+  maxLife: number;
+  color: string;
+}
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -26,9 +34,10 @@ export class Game {
   private readonly baseSpeed = 250;
   private readonly extraSpeed = 350;
 
-  // Aim-Status des Spielers (für Preview)
   private aimAngleDeg = 45;
   private aimPower = 0.6;
+
+  private fireworks: FireworkParticle[] = [];
 
   constructor(canvas: HTMLCanvasElement, hud: HUD) {
     this.canvas = canvas;
@@ -48,6 +57,7 @@ export class Game {
     this.hud.registerAimChangeHandler((angleDeg, power) =>
       this.updateAim(angleDeg, power)
     );
+    this.hud.registerRestartHandler(() => this.resetGame());
 
     this.updateHud();
   }
@@ -57,6 +67,9 @@ export class Game {
   }
 
   private setupWorld(): void {
+    // prozedurales Terrain für dieses Spiel erzeugen
+    regenerateTerrain(this.width, this.height);
+
     const leftX = this.width * 0.15;
     const rightX = this.width * 0.85;
 
@@ -96,6 +109,8 @@ export class Game {
     this.players = [player1, player2];
     this.currentPlayerIndex = 0;
     this.randomizeWind();
+    this.fireworks = [];
+    this.currentProjectile = null;
   }
 
   start(): void {
@@ -113,6 +128,7 @@ export class Game {
     if (this.running) {
       this.update(dt);
     }
+    this.updateFireworks(dt);
     this.render();
 
     requestAnimationFrame(this.loop);
@@ -195,7 +211,6 @@ export class Game {
       this.hud.showMessage(
         'Du bist am Zug. Winkel & Schusskraft einstellen und feuern.'
       );
-      // Waffe des Spielers auf aktuellen Aim-Winkel setzen
       current.weapon.setAimAngle(this.aimAngleDeg);
     } else {
       this.hud.setControlsEnabled(false);
@@ -218,28 +233,31 @@ export class Game {
 
   private checkVictory(): boolean {
     const [p1, p2] = this.players;
-    if (p1.castle.hp <= 0 && p2.castle.hp <= 0) {
-      this.running = false;
-      this.hud.setControlsEnabled(false);
+    const p1Dead = p1.castle.hp <= 0;
+    const p2Dead = p2.castle.hp <= 0;
+
+    if (!p1Dead && !p2Dead) {
+      return false;
+    }
+
+    this.running = false;
+    this.hud.setControlsEnabled(false);
+
+    if (p1Dead && p2Dead) {
       this.hud.showWinner('Niemand – beide Burgen zerstört!');
-      return true;
+      const center: Vec2 = { x: this.width / 2, y: this.height / 3 };
+      this.spawnFireworks(center);
+    } else {
+      const winner = p1Dead ? p2 : p1;
+      this.hud.showWinner(winner.name);
+      const bounds = winner.castle.getBounds();
+      const center: Vec2 = {
+        x: winner.castle.position.x,
+        y: bounds.top - 40
+      };
+      this.spawnFireworks(center);
     }
-
-    if (p1.castle.hp <= 0) {
-      this.running = false;
-      this.hud.setControlsEnabled(false);
-      this.hud.showWinner(p2.name);
-      return true;
-    }
-
-    if (p2.castle.hp <= 0) {
-      this.running = false;
-      this.hud.setControlsEnabled(false);
-      this.hud.showWinner(p1.name);
-      return true;
-    }
-
-    return false;
+    return true;
   }
 
   private updateHud(): void {
@@ -258,7 +276,6 @@ export class Game {
     this.aimAngleDeg = angleDeg;
     this.aimPower = power;
 
-    // Nur sinnvoll für den menschlichen Spieler
     const current = this.currentPlayer;
     if (current.type === 'human') {
       current.weapon.setAimAngle(angleDeg);
@@ -290,7 +307,7 @@ export class Game {
 
     this.currentProjectile = new Projectile(muzzle.x, muzzle.y, vx, vy, 4);
     weapon.markFired();
-    weapon.setAimAngle(angleDeg); // Rohr zeigt in Schussrichtung
+    weapon.setAimAngle(angleDeg);
     this.hud.setControlsEnabled(false);
     this.hud.showMessage(`${shooter.name} feuert!`);
   }
@@ -347,6 +364,84 @@ export class Game {
     ctx.restore();
   }
 
+  private spawnFireworks(center: Vec2): void {
+    const colors = ['#fbbf24', '#22d3ee', '#f97373', '#a855f7', '#4ade80'];
+
+    for (let burst = 0; burst < 4; burst++) {
+      const cx = center.x + (Math.random() - 0.5) * 80;
+      const cy = center.y + (Math.random() - 0.5) * 40;
+      const count = 40;
+
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 80 + Math.random() * 160;
+
+        const life = 1.2 + Math.random() * 0.6;
+
+        this.fireworks.push({
+          position: { x: cx, y: cy },
+          velocity: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+          life,
+          maxLife: life,
+          color: colors[(burst + i) % colors.length]
+        });
+      }
+    }
+  }
+
+  private updateFireworks(dt: number): void {
+    if (this.fireworks.length === 0) return;
+
+    const drag = 0.98;
+
+    for (const p of this.fireworks) {
+      p.life -= dt;
+      p.velocity.y += GRAVITY * 0.3 * dt;
+      p.velocity.x *= drag;
+      p.velocity.y *= drag;
+      p.position.x += p.velocity.x * dt;
+      p.position.y += p.velocity.y * dt;
+    }
+
+    this.fireworks = this.fireworks.filter((p) => p.life > 0);
+  }
+
+  private hexToRgba(hex: string, alpha: number): string {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (!m) return `rgba(255,255,255,${alpha})`;
+    const r = parseInt(m[1], 16);
+    const g = parseInt(m[2], 16);
+    const b = parseInt(m[3], 16);
+    return `rgba(${r},${g},${alpha.toFixed(2)})`.replace(
+      `${alpha.toFixed(2)})`,
+      `${alpha.toFixed(2)})`
+    );
+  }
+
+  private renderFireworks(ctx: CanvasRenderingContext2D): void {
+    if (this.fireworks.length === 0) return;
+
+    ctx.save();
+    for (const p of this.fireworks) {
+      const alpha = Math.max(0, Math.min(1, p.life / p.maxLife));
+      ctx.fillStyle = this.hexToRgba(p.color, alpha);
+      ctx.beginPath();
+      ctx.arc(p.position.x, p.position.y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  private resetGame(): void {
+    this.running = true;
+    this.fireworks = [];
+    this.currentProjectile = null;
+    this.setupWorld();
+    this.updateHud();
+    this.prepareTurn();
+    this.hud.showMessage('Neues Spiel gestartet.');
+  }
+
   private render(): void {
     const ctx = this.ctx;
 
@@ -374,7 +469,7 @@ export class Game {
     ctx.closePath();
     ctx.fill();
 
-    // Trajektorien-Vorschau (nur Spieler, kein aktives Projektil)
+    // Trajektorien-Vorschau
     this.drawTrajectoryPreview(ctx);
 
     // Burgen & Waffen
@@ -387,5 +482,8 @@ export class Game {
     if (this.currentProjectile) {
       this.currentProjectile.draw(ctx);
     }
+
+    // Feuerwerk (über allem)
+    this.renderFireworks(ctx);
   }
 }
