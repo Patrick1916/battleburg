@@ -2,12 +2,15 @@
 export type FireHandler = (angleDeg: number, power: number) => void;
 export type AimChangeHandler = (angleDeg: number, power: number) => void;
 export type RestartHandler = () => void;
+export type DifficultyChangeHandler = (difficulty: number) => void;
 
 export class HUD {
   private angleInput: HTMLInputElement;
   private angleValueSpan: HTMLElement;
   private powerInput: HTMLInputElement;
   private powerValueSpan: HTMLElement;
+  private difficultyInput: HTMLInputElement;
+  private difficultyValueSpan: HTMLElement;
   private fireButton: HTMLButtonElement;
   private newGameButton: HTMLButtonElement;
   private turnIndicator: HTMLElement;
@@ -19,12 +22,15 @@ export class HUD {
   private fireHandler: FireHandler | null = null;
   private aimChangeHandler: AimChangeHandler | null = null;
   private restartHandler: RestartHandler | null = null;
+  private difficultyChangeHandler: DifficultyChangeHandler | null = null;
 
   constructor() {
     const angleInput = document.getElementById('angleSlider') as HTMLInputElement | null;
     const angleValueSpan = document.getElementById('angleValue') as HTMLElement | null;
     const powerInput = document.getElementById('powerSlider') as HTMLInputElement | null;
     const powerValueSpan = document.getElementById('powerValue') as HTMLElement | null;
+    const difficultyInput = document.getElementById('difficultySlider') as HTMLInputElement | null;
+    const difficultyValueSpan = document.getElementById('difficultyValue') as HTMLElement | null;
     const fireButton = document.getElementById('fireButton') as HTMLButtonElement | null;
     const newGameButton = document.getElementById('newGameButton') as HTMLButtonElement | null;
     const turnIndicator = document.getElementById('turnIndicator') as HTMLElement | null;
@@ -38,6 +44,8 @@ export class HUD {
       !angleValueSpan ||
       !powerInput ||
       !powerValueSpan ||
+      !difficultyInput ||
+      !difficultyValueSpan ||
       !fireButton ||
       !newGameButton ||
       !turnIndicator ||
@@ -53,6 +61,8 @@ export class HUD {
     this.angleValueSpan = angleValueSpan;
     this.powerInput = powerInput;
     this.powerValueSpan = powerValueSpan;
+    this.difficultyInput = difficultyInput;
+    this.difficultyValueSpan = difficultyValueSpan;
     this.fireButton = fireButton;
     this.newGameButton = newGameButton;
     this.turnIndicator = turnIndicator;
@@ -75,6 +85,14 @@ export class HUD {
       this.notifyAimChange();
     });
 
+    this.difficultyInput.addEventListener('input', () => {
+      const value = parseInt(this.difficultyInput.value, 10);
+      this.difficultyValueSpan.textContent = `${value} / 10`;
+      if (this.difficultyChangeHandler) {
+        this.difficultyChangeHandler(value);
+      }
+    });
+
     this.fireButton.addEventListener('click', () => {
       if (!this.fireHandler) return;
       const angle = parseFloat(this.angleInput.value);
@@ -88,6 +106,12 @@ export class HUD {
         this.restartHandler();
       }
     });
+
+    // Initialanzeigen
+    this.angleValueSpan.textContent = `${this.angleInput.value}°`;
+    this.powerValueSpan.textContent = `${this.powerInput.value}%`;
+    const diffVal = parseInt(this.difficultyInput.value, 10);
+    this.difficultyValueSpan.textContent = `${diffVal} / 10`;
   }
 
   private notifyAimChange(): void {
@@ -104,7 +128,6 @@ export class HUD {
 
   registerAimChangeHandler(handler: AimChangeHandler): void {
     this.aimChangeHandler = handler;
-    // initiale Werte pushen
     const angle = parseFloat(this.angleInput.value);
     const power = parseFloat(this.powerInput.value) / 100;
     handler(angle, power);
@@ -114,10 +137,17 @@ export class HUD {
     this.restartHandler = handler;
   }
 
+  registerDifficultyChangeHandler(handler: DifficultyChangeHandler): void {
+    this.difficultyChangeHandler = handler;
+    const value = parseInt(this.difficultyInput.value, 10);
+    handler(value);
+  }
+
   setControlsEnabled(enabled: boolean): void {
     this.fireButton.disabled = !enabled;
     this.angleInput.disabled = !enabled;
     this.powerInput.disabled = !enabled;
+    // Schwierigkeit & Neues Spiel bleiben immer bedienbar
   }
 
   updateHUD(

@@ -38,8 +38,21 @@
         </div>
 
         <div class="hud-section">
+          <label for="difficultySlider">Schwierigkeit</label>
+          <input
+            type="range"
+            id="difficultySlider"
+            min="1"
+            max="10"
+            value="3"
+          />
+          <span id="difficultyValue">3 / 10</span>
+        </div>
+
+        <div class="hud-section">
           <button id="fireButton">Feuer!</button>
         </div>
+
         <div class="hud-section">
           <button id="newGameButton">Neues Spiel</button>
         </div>
@@ -57,7 +70,7 @@
         <div class="hud-section message-box" id="messageBox"></div>
 
         <div class="hud-section hud-version">
-          <span id="versionLabel">Battleburg v0.2.3</span>
+          <span id="versionLabel">Battleburg v0.2.4</span>
         </div>
       </div>
     </div>

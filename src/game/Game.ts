@@ -37,6 +37,8 @@ export class Game {
   private aimAngleDeg = 45;
   private aimPower = 0.6;
 
+  private difficulty = 3; // 1..10, default 3
+
   private fireworks: FireworkParticle[] = [];
 
   constructor(canvas: HTMLCanvasElement, hud: HUD) {
@@ -58,6 +60,9 @@ export class Game {
       this.updateAim(angleDeg, power)
     );
     this.hud.registerRestartHandler(() => this.resetGame());
+    this.hud.registerDifficultyChangeHandler((difficulty) =>
+      this.setDifficulty(difficulty)
+    );
 
     this.updateHud();
   }
@@ -67,7 +72,6 @@ export class Game {
   }
 
   private setupWorld(): void {
-    // prozedurales Terrain für dieses Spiel erzeugen
     regenerateTerrain(this.width, this.height);
 
     const leftX = this.width * 0.15;
@@ -214,13 +218,17 @@ export class Game {
       current.weapon.setAimAngle(this.aimAngleDeg);
     } else {
       this.hud.setControlsEnabled(false);
-      this.hud.showMessage('CPU zielt...');
+      this.hud.showMessage(
+        `CPU zielt... (Schwierigkeit ${this.difficulty}/10)`
+      );
       window.setTimeout(() => {
         const opponent =
           this.players[0] === current ? this.players[1] : this.players[0];
         this.simpleAI.takeTurn(
           current,
           opponent,
+          this.difficulty,
+          this.wind,
           (angleDeg, power) => this.handleFire(angleDeg, power)
         );
       }, 800);
@@ -280,6 +288,10 @@ export class Game {
     if (current.type === 'human') {
       current.weapon.setAimAngle(angleDeg);
     }
+  }
+
+  private setDifficulty(difficulty: number): void {
+    this.difficulty = Math.min(10, Math.max(1, Math.round(difficulty)));
   }
 
   private handleFire(angleDeg: number, power: number): void {
@@ -375,7 +387,6 @@ export class Game {
       for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 80 + Math.random() * 160;
-
         const life = 1.2 + Math.random() * 0.6;
 
         this.fireworks.push({
@@ -412,10 +423,7 @@ export class Game {
     const r = parseInt(m[1], 16);
     const g = parseInt(m[2], 16);
     const b = parseInt(m[3], 16);
-    return `rgba(${r},${g},${alpha.toFixed(2)})`.replace(
-      `${alpha.toFixed(2)})`,
-      `${alpha.toFixed(2)})`
-    );
+    return `rgba(${r},${g},${b},${alpha})`;
   }
 
   private renderFireworks(ctx: CanvasRenderingContext2D): void {
@@ -483,7 +491,7 @@ export class Game {
       this.currentProjectile.draw(ctx);
     }
 
-    // Feuerwerk (über allem)
+    // Feuerwerk
     this.renderFireworks(ctx);
   }
 }
