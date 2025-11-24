@@ -1,5 +1,6 @@
 // src/ui/HUD.ts
 export type FireHandler = (angleDeg: number, power: number) => void;
+export type AimChangeHandler = (angleDeg: number, power: number) => void;
 
 export class HUD {
   private angleInput: HTMLInputElement;
@@ -14,6 +15,7 @@ export class HUD {
   private messageBox: HTMLElement;
 
   private fireHandler: FireHandler | null = null;
+  private aimChangeHandler: AimChangeHandler | null = null;
 
   constructor() {
     const angleInput = document.getElementById('angleSlider') as HTMLInputElement | null;
@@ -59,10 +61,12 @@ export class HUD {
   private initEvents(): void {
     this.angleInput.addEventListener('input', () => {
       this.angleValueSpan.textContent = `${this.angleInput.value}°`;
+      this.notifyAimChange();
     });
 
     this.powerInput.addEventListener('input', () => {
       this.powerValueSpan.textContent = `${this.powerInput.value}%`;
+      this.notifyAimChange();
     });
 
     this.fireButton.addEventListener('click', () => {
@@ -74,8 +78,24 @@ export class HUD {
     });
   }
 
+  private notifyAimChange(): void {
+    if (!this.aimChangeHandler) return;
+    const angle = parseFloat(this.angleInput.value);
+    const powerPercent = parseFloat(this.powerInput.value);
+    const power = powerPercent / 100;
+    this.aimChangeHandler(angle, power);
+  }
+
   registerFireHandler(handler: FireHandler): void {
     this.fireHandler = handler;
+  }
+
+  registerAimChangeHandler(handler: AimChangeHandler): void {
+    this.aimChangeHandler = handler;
+    // Initiale Werte einmal senden (passen zu index.html Defaults)
+    const angle = parseFloat(this.angleInput.value);
+    const power = parseFloat(this.powerInput.value) / 100;
+    handler(angle, power);
   }
 
   setControlsEnabled(enabled: boolean): void {

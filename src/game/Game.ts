@@ -3,7 +3,7 @@ import { HUD } from '../ui/HUD';
 import { Player } from './Player';
 import { Projectile } from './Projectile';
 import { SimpleAI } from './AI';
-import { getTerrainHeight, clamp } from './Physics';
+import { GRAVITY, getTerrainHeight, clamp } from './Physics';
 import type { Vec2 } from './types';
 import { Castle } from './Castle';
 import { Weapon } from './Weapon';
@@ -26,6 +26,10 @@ export class Game {
   private readonly baseSpeed = 250;
   private readonly extraSpeed = 350;
 
+  // Aim-Status des Spielers (für Preview)
+  private aimAngleDeg = 45;
+  private aimPower = 0.6;
+
   constructor(canvas: HTMLCanvasElement, hud: HUD) {
     this.canvas = canvas;
     const ctx = canvas.getContext('2d');
@@ -38,9 +42,13 @@ export class Game {
     this.hud = hud;
     this.simpleAI = new SimpleAI();
 
-    console.log('[Battleburg] Game.setupWorld() ...');
     this.setupWorld();
+
     this.hud.registerFireHandler((angleDeg, power) => this.handleFire(angleDeg, power));
+    this.hud.registerAimChangeHandler((angleDeg, power) =>
+      this.updateAim(angleDeg, power)
+    );
+
     this.updateHud();
   }
 
@@ -187,6 +195,8 @@ export class Game {
       this.hud.showMessage(
         'Du bist am Zug. Winkel & Schusskraft einstellen und feuern.'
       );
+      // Waffe des Spielers auf aktuellen Aim-Winkel setzen
+      current.weapon.setAimAngle(this.aimAngleDeg);
     } else {
       this.hud.setControlsEnabled(false);
       this.hud.showMessage('CPU zielt...');
@@ -244,6 +254,17 @@ export class Game {
     );
   }
 
+  private updateAim(angleDeg: number, power: number): void {
+    this.aimAngleDeg = angleDeg;
+    this.aimPower = power;
+
+    // Nur sinnvoll für den menschlichen Spieler
+    const current = this.currentPlayer;
+    if (current.type === 'human') {
+      current.weapon.setAimAngle(angleDeg);
+    }
+  }
+
   private handleFire(angleDeg: number, power: number): void {
     if (this.currentProjectile) return;
 
@@ -269,8 +290,61 @@ export class Game {
 
     this.currentProjectile = new Projectile(muzzle.x, muzzle.y, vx, vy, 4);
     weapon.markFired();
+    weapon.setAimAngle(angleDeg); // Rohr zeigt in Schussrichtung
     this.hud.setControlsEnabled(false);
     this.hud.showMessage(`${shooter.name} feuert!`);
+  }
+
+  private drawTrajectoryPreview(ctx: CanvasRenderingContext2D): void {
+    if (this.currentProjectile) return;
+
+    const current = this.currentPlayer;
+    if (current.type !== 'human') return;
+
+    const muzzle = current.weapon.getMuzzlePosition();
+    const isLeft = current.castle.isLeftSide;
+
+    const clampedPower = clamp(this.aimPower, 0.1, 1);
+    const angleRad = (this.aimAngleDeg * Math.PI) / 180;
+    const direction = isLeft ? 1 : -1;
+    const speed = this.baseSpeed + this.extraSpeed * clampedPower;
+
+    let vx = Math.cos(angleRad) * speed * direction;
+    let vy = -Math.sin(angleRad) * speed;
+    let x = muzzle.x;
+    let y = muzzle.y;
+
+    const dt = 0.05;
+    const maxSteps = 60;
+    const points: { x: number; y: number }[] = [];
+
+    for (let i = 0; i < maxSteps; i++) {
+      vx += this.wind * dt;
+      vy += GRAVITY * dt;
+      x += vx * dt;
+      y += vy * dt;
+
+      if (x < 0 || x > this.width || y > this.height) break;
+
+      const terrainY = getTerrainHeight(x, this.width, this.height);
+      if (y >= terrainY) break;
+
+      points.push({ x, y });
+    }
+
+    if (points.length === 0) return;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   private render(): void {
@@ -282,7 +356,6 @@ export class Game {
     ctx.fillStyle = '#0b0d12';
     ctx.fillRect(0, 0, this.width, this.height);
 
-    // Himmel
     const skyGradient = ctx.createLinearGradient(0, 0, 0, this.height);
     skyGradient.addColorStop(0, '#1f2937');
     skyGradient.addColorStop(1, '#0b0d12');
@@ -300,6 +373,9 @@ export class Game {
     ctx.lineTo(this.width, this.height);
     ctx.closePath();
     ctx.fill();
+
+    // Trajektorien-Vorschau (nur Spieler, kein aktives Projektil)
+    this.drawTrajectoryPreview(ctx);
 
     // Burgen & Waffen
     for (const player of this.players) {

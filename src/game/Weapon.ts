@@ -1,11 +1,11 @@
 // src/game/Weapon.ts
 import { Castle } from './Castle';
-import type { Vec2 } from './types';
 
 export class Weapon {
   readonly castle: Castle;
   private reloadTime: number;
   private cooldown: number;
+  private currentAngleDeg: number = 45;
 
   constructor(castle: Castle, reloadTimeSeconds = 2) {
     this.castle = castle;
@@ -27,23 +27,53 @@ export class Weapon {
     this.cooldown = this.reloadTime;
   }
 
-  getMuzzlePosition(): Vec2 {
+  setAimAngle(angleDeg: number): void {
+    this.currentAngleDeg = angleDeg;
+  }
+
+  getMuzzlePosition() {
     return this.castle.getMuzzlePosition();
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
     const muzzle = this.getMuzzlePosition();
-    const baseHeight = 8;
-    const baseWidth = 24;
 
+    // fester Sockel auf der Burg
+    const baseHeight = 8;
+    const baseWidth = 26;
     ctx.save();
-    ctx.fillStyle = '#bbbbbb';
+    ctx.fillStyle = '#cbd5f5';
     ctx.fillRect(
       muzzle.x - baseWidth / 2,
       muzzle.y - baseHeight,
       baseWidth,
       baseHeight
     );
+    ctx.restore();
+
+    // drehbares Rohr
+    const angleRad = (this.currentAngleDeg * Math.PI) / 180;
+    const direction = this.castle.isLeftSide ? 1 : -1;
+
+    // Vektor wie beim Projektil
+    const vx = Math.cos(angleRad) * direction;
+    const vy = -Math.sin(angleRad);
+    const rotation = Math.atan2(vy, vx);
+
+    const barrelLength = 34;
+    const barrelThickness = 6;
+
+    ctx.save();
+    ctx.translate(muzzle.x, muzzle.y - baseHeight / 2);
+    ctx.rotate(rotation);
+
+    ctx.fillStyle = '#111827';
+    ctx.fillRect(0, -barrelThickness / 2, barrelLength, barrelThickness);
+
+    // leichte farbliche Spitze
+    ctx.fillStyle = '#facc15';
+    ctx.fillRect(barrelLength - 6, -barrelThickness / 2, 6, barrelThickness);
+
     ctx.restore();
   }
 }
