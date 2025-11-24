@@ -1,18 +1,50 @@
 // src/game/Player.ts
-import type { PlayerType } from './types';
 import { Castle } from './Castle';
 import { Weapon } from './Weapon';
 
-export class Player {
-  readonly name: string;
-  readonly type: PlayerType;
-  readonly castle: Castle;
-  readonly weapon: Weapon;
+export type PlayerType = 'human' | 'ai';
 
-  constructor(name: string, type: PlayerType, castle: Castle, weapon: Weapon) {
+export class Player {
+  name: string;
+  type: PlayerType;
+  castle: Castle;
+  weapon: Weapon;
+
+  gold: number;
+  incomeLevel: number;
+
+  constructor(
+    name: string,
+    type: PlayerType,
+    castle: Castle,
+    weapon: Weapon,
+    initialGold = 40
+  ) {
     this.name = name;
     this.type = type;
     this.castle = castle;
     this.weapon = weapon;
+    this.gold = initialGold;
+    this.incomeLevel = 0;
+  }
+
+  getIncomePerTurn(): number {
+    const baseIncome = 15;
+    const perLevel = 10;
+    return baseIncome + this.incomeLevel * perLevel;
+  }
+
+  addGold(amount: number): void {
+    this.gold += amount;
+  }
+
+  canAfford(cost: number): boolean {
+    return this.gold >= cost;
+  }
+
+  spendGold(cost: number): boolean {
+    if (this.gold < cost) return false;
+    this.gold -= cost;
+    return true;
   }
 }

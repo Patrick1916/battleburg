@@ -99,3 +99,43 @@ button#newGameButton {
 button#newGameButton:hover {
   background: #1f2937;
 }
+.hud-economy-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.hud-economy-buttons button {
+  flex: 1 1 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid #4b5563;
+  background: #111827;
+  color: #e5e7eb;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.hud-economy-buttons button:hover {
+  background: #1f2937;
+}
+
+.hud-economy-stats {
+  font-size: 12px;
+  color: #9ca3af;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Versionsanzeige unten im HUD (falls noch nicht drin) */
+.hud-version {
+  margin-top: auto;
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: right;
+  padding-top: 8px;
+  border-top: 1px solid #111827;
+}
+

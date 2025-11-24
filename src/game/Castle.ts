@@ -2,7 +2,7 @@
 import type { Vec2 } from './types';
 
 export class Castle {
-  readonly position: Vec2; // Basiszentrum (x), Bodenhöhe (y)
+  readonly position: Vec2;
   readonly width: number;
   readonly height: number;
   readonly maxHp: number;
@@ -31,9 +31,14 @@ export class Castle {
     this.hp = Math.max(0, this.hp - amount);
   }
 
+  // NEU: Reparatur
+  repair(amount: number): void {
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+  }
+
   private getCurrentHeight(): number {
     const ratio = this.hp / this.maxHp;
-    const clampedRatio = Math.max(0.2, ratio); // Burg wird nie komplett unsichtbar
+    const clampedRatio = Math.max(0.2, ratio);
     return this.height * clampedRatio;
   }
 
@@ -48,7 +53,6 @@ export class Castle {
 
   getMuzzlePosition(): Vec2 {
     const bounds = this.getBounds();
-    // leichte Erhöhung, damit die Kanone über den Zinnen sitzt
     return {
       x: this.position.x,
       y: bounds.top - 6

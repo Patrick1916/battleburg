@@ -4,6 +4,9 @@ export type AimChangeHandler = (angleDeg: number, power: number) => void;
 export type RestartHandler = () => void;
 export type DifficultyChangeHandler = (difficulty: number) => void;
 
+export type EconomyAction = 'repair' | 'income';
+export type EconomyActionHandler = (action: EconomyAction) => void;
+
 export class HUD {
   private angleInput: HTMLInputElement;
   private angleValueSpan: HTMLElement;
@@ -11,18 +14,25 @@ export class HUD {
   private powerValueSpan: HTMLElement;
   private difficultyInput: HTMLInputElement;
   private difficultyValueSpan: HTMLElement;
+
+  private repairButton: HTMLButtonElement;
+  private incomeButton: HTMLButtonElement;
+
   private fireButton: HTMLButtonElement;
   private newGameButton: HTMLButtonElement;
   private turnIndicator: HTMLElement;
   private windIndicator: HTMLElement;
   private hpLeftSpan: HTMLElement;
   private hpRightSpan: HTMLElement;
+  private goldLeftSpan: HTMLElement;
+  private goldRightSpan: HTMLElement;
   private messageBox: HTMLElement;
 
   private fireHandler: FireHandler | null = null;
   private aimChangeHandler: AimChangeHandler | null = null;
   private restartHandler: RestartHandler | null = null;
   private difficultyChangeHandler: DifficultyChangeHandler | null = null;
+  private economyHandler: EconomyActionHandler | null = null;
 
   constructor() {
     const angleInput = document.getElementById('angleSlider') as HTMLInputElement | null;
@@ -31,12 +41,18 @@ export class HUD {
     const powerValueSpan = document.getElementById('powerValue') as HTMLElement | null;
     const difficultyInput = document.getElementById('difficultySlider') as HTMLInputElement | null;
     const difficultyValueSpan = document.getElementById('difficultyValue') as HTMLElement | null;
+
+    const repairButton = document.getElementById('repairButton') as HTMLButtonElement | null;
+    const incomeButton = document.getElementById('incomeButton') as HTMLButtonElement | null;
+
     const fireButton = document.getElementById('fireButton') as HTMLButtonElement | null;
     const newGameButton = document.getElementById('newGameButton') as HTMLButtonElement | null;
     const turnIndicator = document.getElementById('turnIndicator') as HTMLElement | null;
     const windIndicator = document.getElementById('windIndicator') as HTMLElement | null;
     const hpLeftSpan = document.getElementById('hpLeft') as HTMLElement | null;
     const hpRightSpan = document.getElementById('hpRight') as HTMLElement | null;
+    const goldLeftSpan = document.getElementById('goldLeft') as HTMLElement | null;
+    const goldRightSpan = document.getElementById('goldRight') as HTMLElement | null;
     const messageBox = document.getElementById('messageBox') as HTMLElement | null;
 
     if (
@@ -46,12 +62,16 @@ export class HUD {
       !powerValueSpan ||
       !difficultyInput ||
       !difficultyValueSpan ||
+      !repairButton ||
+      !incomeButton ||
       !fireButton ||
       !newGameButton ||
       !turnIndicator ||
       !windIndicator ||
       !hpLeftSpan ||
       !hpRightSpan ||
+      !goldLeftSpan ||
+      !goldRightSpan ||
       !messageBox
     ) {
       throw new Error('HUD-Elemente konnten nicht gefunden werden – prüfe die IDs in index.html.');
@@ -63,12 +83,16 @@ export class HUD {
     this.powerValueSpan = powerValueSpan;
     this.difficultyInput = difficultyInput;
     this.difficultyValueSpan = difficultyValueSpan;
+    this.repairButton = repairButton;
+    this.incomeButton = incomeButton;
     this.fireButton = fireButton;
     this.newGameButton = newGameButton;
     this.turnIndicator = turnIndicator;
     this.windIndicator = windIndicator;
     this.hpLeftSpan = hpLeftSpan;
     this.hpRightSpan = hpRightSpan;
+    this.goldLeftSpan = goldLeftSpan;
+    this.goldRightSpan = goldRightSpan;
     this.messageBox = messageBox;
 
     this.initEvents();
@@ -104,6 +128,18 @@ export class HUD {
     this.newGameButton.addEventListener('click', () => {
       if (this.restartHandler) {
         this.restartHandler();
+      }
+    });
+
+    this.repairButton.addEventListener('click', () => {
+      if (this.economyHandler) {
+        this.economyHandler('repair');
+      }
+    });
+
+    this.incomeButton.addEventListener('click', () => {
+      if (this.economyHandler) {
+        this.economyHandler('income');
       }
     });
 
@@ -143,11 +179,17 @@ export class HUD {
     handler(value);
   }
 
+  registerEconomyHandler(handler: EconomyActionHandler): void {
+    this.economyHandler = handler;
+  }
+
   setControlsEnabled(enabled: boolean): void {
     this.fireButton.disabled = !enabled;
     this.angleInput.disabled = !enabled;
     this.powerInput.disabled = !enabled;
-    // Schwierigkeit & Neues Spiel bleiben immer bedienbar
+    this.repairButton.disabled = !enabled;
+    this.incomeButton.disabled = !enabled;
+    // Schwierigkeit & Neues Spiel bleiben weiterhin bedienbar
   }
 
   updateHUD(
@@ -156,7 +198,9 @@ export class HUD {
     maxHpLeft: number,
     hpRight: number,
     maxHpRight: number,
-    wind: number
+    wind: number,
+    goldLeft: number,
+    goldRight: number
   ): void {
     this.turnIndicator.textContent = currentPlayerName;
 
@@ -166,6 +210,9 @@ export class HUD {
 
     this.hpLeftSpan.textContent = `${hpLeft} / ${maxHpLeft}`;
     this.hpRightSpan.textContent = `${hpRight} / ${maxHpRight}`;
+
+    this.goldLeftSpan.textContent = `${Math.round(goldLeft)}`;
+    this.goldRightSpan.textContent = `${Math.round(goldRight)}`;
   }
 
   showMessage(message: string): void {

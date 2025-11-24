@@ -1,5 +1,5 @@
 // src/game/Game.ts
-import { HUD } from '../ui/HUD';
+import { HUD, EconomyAction } from '../ui/HUD';
 import { Player } from './Player';
 import { Projectile } from './Projectile';
 import { SimpleAI } from './AI';
@@ -36,8 +36,7 @@ export class Game {
 
   private aimAngleDeg = 45;
   private aimPower = 0.6;
-
-  private difficulty = 3; // 1..10, default 3
+  private difficulty = 3; // 1..10
 
   private fireworks: FireworkParticle[] = [];
 
@@ -62,6 +61,9 @@ export class Game {
     this.hud.registerRestartHandler(() => this.resetGame());
     this.hud.registerDifficultyChangeHandler((difficulty) =>
       this.setDifficulty(difficulty)
+    );
+    this.hud.registerEconomyHandler((action: EconomyAction) =>
+      this.handleEconomyAction(action)
     );
 
     this.updateHud();
@@ -107,8 +109,8 @@ export class Game {
     const leftWeapon = new Weapon(leftCastle, 2);
     const rightWeapon = new Weapon(rightCastle, 2);
 
-    const player1 = new Player('Spieler', 'human', leftCastle, leftWeapon);
-    const player2 = new Player('CPU', 'ai', rightCastle, rightWeapon);
+    const player1 = new Player('Spieler', 'human', leftCastle, leftWeapon, 40);
+    const player2 = new Player('CPU', 'ai', rightCastle, rightWeapon, 40);
 
     this.players = [player1, player2];
     this.currentPlayerIndex = 0;
@@ -120,6 +122,7 @@ export class Game {
   start(): void {
     this.running = true;
     this.lastTimestamp = performance.now();
+    this.startTurn();
     this.prepareTurn();
     requestAnimationFrame(this.loop);
   }
@@ -203,8 +206,20 @@ export class Game {
   private nextTurn(): void {
     this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
     this.randomizeWind();
-    this.updateHud();
+    this.startTurn();
     this.prepareTurn();
+  }
+
+  private startTurn(): void {
+    const current = this.currentPlayer;
+    const income = current.getIncomePerTurn();
+    current.addGold(income);
+
+    if (current.type === 'ai') {
+      this.handleAIEconomy(current);
+    }
+
+    this.updateHud();
   }
 
   private prepareTurn(): void {
@@ -213,7 +228,7 @@ export class Game {
     if (current.type === 'human') {
       this.hud.setControlsEnabled(true);
       this.hud.showMessage(
-        'Du bist am Zug. Winkel & Schusskraft einstellen und feuern.'
+        'Du bist am Zug. Winkel & Schusskraft einstellen, ggf. reparieren/ausbauen und feuern.'
       );
       current.weapon.setAimAngle(this.aimAngleDeg);
     } else {
@@ -276,7 +291,9 @@ export class Game {
       p1.castle.maxHp,
       p2.castle.hp,
       p2.castle.maxHp,
-      this.wind
+      this.wind,
+      p1.gold,
+      p2.gold
     );
   }
 
@@ -292,6 +309,82 @@ export class Game {
 
   private setDifficulty(difficulty: number): void {
     this.difficulty = Math.min(10, Math.max(1, Math.round(difficulty)));
+  }
+
+  private handleEconomyAction(action: EconomyAction): void {
+    if (!this.running) return;
+    const current = this.currentPlayer;
+    if (current.type !== 'human') {
+      this.hud.showMessage('Wirtschaftsaktionen sind nur am Spielerzug erlaubt.');
+      return;
+    }
+
+    switch (action) {
+      case 'repair': {
+        const cost = 25;
+        const heal = 25;
+        if (!current.canAfford(cost)) {
+          this.hud.showMessage('Nicht genug Gold für Reparatur (25G).');
+          return;
+        }
+        if (current.castle.hp >= current.castle.maxHp) {
+          this.hud.showMessage('Burg ist bereits voll repariert.');
+          return;
+        }
+        current.spendGold(cost);
+        current.castle.repair(heal);
+        this.hud.showMessage(`Burg repariert (+${heal} HP, -${cost} Gold).`);
+        this.updateHud();
+        break;
+      }
+      case 'income': {
+        const currentLevel = current.incomeLevel;
+        const maxLevel = 3;
+        if (currentLevel >= maxLevel) {
+          this.hud.showMessage('Einkommen ist bereits maximal ausgebaut.');
+          return;
+        }
+        const cost = 40 + currentLevel * 20; // 40, 60, 80
+        if (!current.canAfford(cost)) {
+          this.hud.showMessage(
+            `Nicht genug Gold für Einkommensausbau (benötigt ${cost}G).`
+          );
+          return;
+        }
+        current.spendGold(cost);
+        current.incomeLevel += 1;
+        const newIncome = current.getIncomePerTurn();
+        this.hud.showMessage(
+          `Einkommen ausgebaut (Stufe ${current.incomeLevel}, jetzt ${newIncome} Gold pro Runde).`
+        );
+        this.updateHud();
+        break;
+      }
+    }
+  }
+
+  private handleAIEconomy(player: Player): void {
+    // ganz grobe KI-Wirtschaftslogik
+    const repairCost = 25;
+    const repairHeal = 25;
+
+    if (
+      player.castle.hp < player.castle.maxHp * 0.4 &&
+      player.canAfford(repairCost)
+    ) {
+      player.spendGold(repairCost);
+      player.castle.repair(repairHeal);
+      return;
+    }
+
+    const maxLevel = 3;
+    if (player.incomeLevel < maxLevel) {
+      const cost = 40 + player.incomeLevel * 20;
+      if (player.canAfford(cost)) {
+        player.spendGold(cost);
+        player.incomeLevel += 1;
+      }
+    }
   }
 
   private handleFire(angleDeg: number, power: number): void {
@@ -445,6 +538,7 @@ export class Game {
     this.fireworks = [];
     this.currentProjectile = null;
     this.setupWorld();
+    this.startTurn();
     this.updateHud();
     this.prepareTurn();
     this.hud.showMessage('Neues Spiel gestartet.');
